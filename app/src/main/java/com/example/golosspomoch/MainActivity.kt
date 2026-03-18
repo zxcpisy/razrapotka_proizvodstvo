@@ -1,34 +1,34 @@
 package com.example.golosspomoch
 
-import android.Manifest
-import android.content.Intent
-import android.net.Uri
-import android.os.Build
-import android.os.Bundle
-import android.provider.Settings
-import androidx.activity.enableEdgeToEdge
-import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.view.ViewCompat
-import androidx.core.view.WindowInsetsCompat
+import android.os.Bundle
+import android.util.Log
+import kotlinx.coroutines.*
 
 class MainActivity : AppCompatActivity() {
-    @RequiresApi(Build.VERSION_CODES.O)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        setContentView(R.layout.activity_main)
 
-        requestPermissions(arrayOf(
-            Manifest.permission.RECORD_AUDIO
-        ), 1)
+        // Тестовая функция ассистента
+        testAssistant()
+    }
 
-        if (!Settings.canDrawOverlays(this)) {
-            startActivity(Intent(
-                Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                Uri.parse("package:$packageName")
-            ))
+    private fun testAssistant() {
+        // Корутин scope на Main для UI
+        CoroutineScope(Dispatchers.Main).launch {
+            try {
+                // Всё сетевое делаем в Dispatchers.IO
+                val response = withContext(Dispatchers.IO) {
+                    QwenClient.ask("Привет ассистент")
+                }
+                Log.d("AssistantTest", "Ответ ассистента: $response")
+            } catch (e: Exception) {
+                Log.e("AssistantTest", "Ошибка запроса к Qwen", e)
+            }
         }
+    }
+}
 
-        startForegroundService(Intent(this, VoiceService::class.java))
-        finish()
-    }
-    }
+

@@ -1,6 +1,8 @@
 package com.example.golosspomoch
 
 
+
+
 import com.google.gson.Gson
 import com.google.gson.JsonObject
 import kotlinx.coroutines.Dispatchers
@@ -12,48 +14,55 @@ import okhttp3.RequestBody.Companion.toRequestBody
 
 object QwenClient {
 
-    private const val API_KEY = "sk-df43a1078dc247be9ac0acbfe9d875e1"
-
-    // URL для Qwen модели через интерфейс совместимости
-    // Обрати внимание: именно этот endpoint подходит для чат‑completion
-    private const val QWEN_URL =
-        "https://dashscope-intl.aliyuncs.com/compatible-mode/v1/chat/completions"
+    private const val API_KEY = "sk-56cdb9afe3cb49a08c2088d3f07d44af"
+    private const val QWEN_URL = "https://cn-hongkong.dashscope.aliyuncs.com/compatible-mode/v1"
 
     private val client = OkHttpClient()
 
     suspend fun ask(prompt: String): String = withContext(Dispatchers.IO) {
+        try {
+            val jsonReq = """
+                {
+                  "model": "qwen-plus",
+                  "messages": [
+                    {"role":"user","content":"$prompt"}
+                  ]
+                }
+            """.trimIndent()
 
-        // Собираем JSON запрос
-        val jsonReq = """
-        {
-          "model": "qwen‑1.2‑chat",
-          "messages": [
-            {"role":"user","content":"$prompt"}
-          ]
+            val body = jsonReq.toRequestBody("application/json".toMediaType())
+            val request = Request.Builder()
+                .url(QWEN_URL)
+                .addHeader("Authorization", "Bearer $API_KEY")
+                .addHeader("Content-Type", "application/json")
+                .post(body)
+                .build()
+
+            val response = client.newCall(request).execute()
+            val responseBody = response.body?.string() ?: return@withContext "Ошибка: пустой ответ"
+
+            // Логируем ответ для отладки
+            println("Qwen response: $responseBody")
+
+            val jsonObj = Gson().fromJson(responseBody, JsonObject::class.java)
+                ?: return@withContext "Ошибка разбора: пустой JSON"
+
+            val choices = jsonObj.getAsJsonArray("choices")
+            if (choices != null && choices.size() > 0) {
+                val first = choices[0].asJsonObject
+                val messageElement = first.get("message")
+                return@withContext when {
+                    messageElement?.isJsonObject == true -> messageElement.asJsonObject.get("content")?.asString
+                    messageElement?.isJsonPrimitive == true -> messageElement.asString
+                    else -> "Ошибка разбора: message пустой"
+                } as String
+            }
+
+            val result = jsonObj.get("result")?.asString
+            result ?: "Ошибка разбора: неизвестный формат JSON"
+
+        } catch (e: Exception) {
+            "Ошибка запроса к Qwen: ${e.localizedMessage}"
         }
-        """.trimIndent()
-
-        val body = jsonReq.toRequestBody("application/json".toMediaType())
-        val request = Request.Builder()
-            .url(QWEN_URL)
-            .addHeader("Authorization", "Bearer $API_KEY")
-            .addHeader("Content-Type", "application/json")
-            .post(body)
-            .build()
-
-        val response = client.newCall(request).execute()
-        val responseBody = response.body?.string() ?: return@withContext "Ошибка: пустой ответ"
-
-        // Разбираем JSON
-        val gson = Gson()
-        val jsonObj = gson.fromJson(responseBody, JsonObject::class.java)
-
-        // Получаем текст ответа
-        val choices = jsonObj.getAsJsonArray("choices") ?: return@withContext "Ошибка разбора"
-        val first = choices.get(0).asJsonObject
-        val message = first.getAsJsonObject("message")
-        val content = message.get("content").asString
-
-        return@withContext content
     }
 }
