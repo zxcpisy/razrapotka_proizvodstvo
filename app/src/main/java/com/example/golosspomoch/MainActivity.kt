@@ -21,16 +21,14 @@ class MainActivity : AppCompatActivity() {
             Manifest.permission.RECORD_AUDIO
         ), 1)
 
-        // Overlay permission
         if (!Settings.canDrawOverlays(this)) {
-            val intent = Intent(
+            startActivity(Intent(
                 Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
                 Uri.parse("package:$packageName")
-            )
-            startActivity(intent)
+            ))
         }
 
         startForegroundService(Intent(this, VoiceService::class.java))
         finish()
-        }
+    }
     }
